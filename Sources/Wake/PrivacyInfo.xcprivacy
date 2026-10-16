@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Privacy manifest for the Wake SDK.
+
+      Wake is a first-party product-analytics SDK: it collects data only on
+      behalf of the host app and never links it to a user identity, shares it with
+      third parties, or uses it to track across apps or websites owned by other
+      companies. Hence NSPrivacyTracking is false and there are no tracking domains.
+
+      The subject identifier ("install_id") is a random UUID the SDK mints itself and
+      stores in the app's own UserDefaults — it is neither the IDFA nor the IDFV, and
+      it resets on Wake.deleteData(). It is an SDK-assigned account-level id, so it is
+      declared below as a User ID rather than a Device ID; the SDK reads no device-level
+      identifier (no IDFA, no ATT prompt).
+
+      ENVIRONMENT CONTEXT — NOT declared, deliberately. Every event also carries coarse
+      context: platform, device MODEL ("iPhone16,2"), OS version, app version, locale,
+      and region/country. None maps to an NSPrivacyCollectedDataType (see PRIVACY.md):
+        - Device model is a model CLASS shared by millions of units, not a per-device
+          identifier — so it is not a Device ID. It's read from hw.machine, which is NOT
+          a required-reason API (the sysctl required-reason category covers kern.boottime,
+          not the hardware model), so no NSPrivacyAccessedAPIType is added for it.
+        - Platform / OS version / app version are build/runtime facts, not a data type.
+        - Locale and region/country come from Locale.current — a user SETTING, not a
+          location measurement (country is derived from the locale region, never from IP),
+          so they are not Location data and Coarse Location is intentionally not declared.
+    -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array>
+        <!-- Random per-install subject id (install_id) sent with every event. -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeUserID</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+        <!-- Product-interaction events: session start/end, first launch, and the
+             developer's declared custom events. -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeProductInteraction</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+            </array>
+        </dict>
+        <!-- StoreKit purchase captures: product id, price, currency, period, trial. -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypePurchaseHistory</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+            </array>
+        </dict>
+    </array>
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <!--
+          UserDefaults, used only to persist the SDK's own state (install id, event
+          sequence, session, upload bookkeeping) keyed under "app.realwake.".
+          Reason CA92.1: access info from the same app running the SDK.
+        -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>CA92.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

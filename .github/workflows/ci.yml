@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test (macOS)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: swift --version && xcodebuild -version
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
+
+  ios:
+    name: Build (iOS)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      # swift build above only compiles the macOS variant. This is the job that
+      # actually compiles the UIKit lifecycle path and the iOS StoreKit paths.
+      - name: Build for iOS
+        run: |
+          xcodebuild build \
+            -scheme Wake \
+            -destination 'generic/platform=iOS' \
+            -skipMacroValidation \
+            -quiet
+
+  swift6:
+    name: Swift 6 language mode
+    runs-on: macos-15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build in Swift 6 mode
+        run: swift build -Xswiftc -swift-version -Xswiftc 6
