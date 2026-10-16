@@ -2,6 +2,10 @@
 
 Notable changes to the Wake SDK. Versions follow [Semantic Versioning](https://semver.org), except that until `1.0` a minor bump may contain breaking changes.
 
+## 0.8.1 — 2026-10-16
+
+- **The README's examples show the new key format.** New API keys start with `wake_`. Keys issued earlier keep working. No code changes.
+
 ## 0.8.0 — 2026-10-16
 
 The first release as Wake.

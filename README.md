@@ -27,7 +27,7 @@ import Wake
 @main
 struct MyApp: App {
     init() {
-        Wake.start(apiKey: "sm_live_…")
+        Wake.start(apiKey: "wake_…")
     }
 }
 ```
@@ -173,7 +173,7 @@ If events aren't arriving and nothing has been reported, turn the level up befor
 
 ```swift
 Wake.logLevel = .debug   // .error is the default; .off silences everything
-Wake.start(apiKey: "sm_live_…")
+Wake.start(apiKey: "wake_…")
 ```
 
 Debug and TestFlight builds are flagged **sandbox**, so your own test runs can be told apart from real users in Wake.
