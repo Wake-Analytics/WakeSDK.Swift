@@ -110,12 +110,16 @@ extension Wake.Event {
         product: Product,
         transaction: Transaction?,
         screenTimeSince: [String: String] = [:],
+        carries: [String] = [],
+        carriedFrom: String? = nil,
         config: String? = nil
     ) -> Wake.Event {
         Wake.Event(
             name: name,
             params: ProductFacts(product, transaction: transaction).params(custom: params),
             screenTimeSince: screenTimeSince,
+            carries: carries,
+            carriedFrom: carriedFrom,
             transaction: transaction.map {
                 TransactionIdentity(id: String($0.id), isSandbox: $0.environment != .production)
             },

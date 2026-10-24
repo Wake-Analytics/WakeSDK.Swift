@@ -128,7 +128,7 @@ final class MockHTTPClient: HTTPClient, @unchecked Sendable {
     }
 
     func send(method: String, url: URL, headers: [String: String], body: Data?) async throws -> HTTPResponse {
-        lock.lock(); _requests.append(Sent(method: method, url: url, body: body)); lock.unlock()
+        lock.withLock { _requests.append(Sent(method: method, url: url, body: body)) }
         switch responder(url) {
         case .success(let r): return r
         case .failure(let e): throw e

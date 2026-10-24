@@ -14,7 +14,10 @@ enum Wire {
         sdkVersion: String,
         events: [BufferedEvent]
     ) throws -> Data {
+        // Milliseconds, which the event store keeps; whole seconds would blur the time
+        // between events logged close together.
         let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let wireEvents: [[String: Any]] = events.map { e in
             var d: [String: Any] = [
                 "event_id": e.eventID,

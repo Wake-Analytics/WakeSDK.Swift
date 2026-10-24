@@ -65,6 +65,18 @@ final class WireTests: XCTestCase {
         }
     }
 
+    func testClientTimestampKeepsMilliseconds() throws {
+        let env = Wake.Envelope(
+            eventID: "e1", name: "used_search", params: [:],
+            clientTS: Date(timeIntervalSince1970: 1.5), eventSequence: 1,
+            sdkVersion: "0.1.0"
+        )
+        let e = try XCTUnwrap((json(try Wire.eventsBody(
+            installID: "i", sdkVersion: "0.1.0", events: [BufferedEvent(env)]
+        ))["events"] as? [[String: Any]])?.first)
+        XCTAssertEqual(e["client_ts"] as? String, "1970-01-01T00:00:01.500Z")
+    }
+
     func testErasureBodyShape() throws {
         XCTAssertEqual(json(try Wire.erasureBody(installID: "inst-9"))["install_id"] as? String, "inst-9")
     }

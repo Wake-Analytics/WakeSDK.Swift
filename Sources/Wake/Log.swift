@@ -20,31 +20,13 @@ extension Wake {
     /// Records one event. Each of the app's events is declared on `Event` by the file
     /// Wake generates, so `Wake.log(.` lists them.
     ///
-    /// A screen-time-since property is measured here, as the event is logged. When
-    /// its starting point was never marked, the property is left off rather than sent
-    /// as zero.
-    public static func log(_ event: Event) {
-        var params = event.params
-        for (paramID, startingPoint) in event.screenTimeSince {
-            if let seconds = Core.shared.screenTimeSince(startingPoint) {
-                params[paramID] = .double(seconds)
-            }
-        }
-        Core.shared.record(
-            name: event.name,
-            params: params,
-            transaction: event.transaction,
-            configID: event.config
-        )
-    }
-
-    /// Marks a starting point, declared on `StartingPoint` by the generated file.
+    /// A screen-time-since property is measured here, as the event is logged: the
+    /// foreground time since its From event was last logged on this install. When it
+    /// never was, the property is left off rather than sent as zero.
     ///
-    /// A starting point is a place in the journey, not an event: nothing is
-    /// recorded, nothing is uploaded, and it never appears in anyone's timeline. All
-    /// it does is put a stake in this install's foreground time, for an event to
-    /// measure back to. Marking it again moves the stake.
-    public static func mark(_ point: StartingPoint) {
-        Core.shared.mark(point.id)
+    /// Every event logged is also a place later events can count from, so it moves
+    /// its own stake once its properties are measured.
+    public static func log(_ event: Event) {
+        Core.shared.log(event)
     }
 }

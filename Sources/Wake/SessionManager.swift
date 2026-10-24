@@ -31,7 +31,7 @@ final class SessionManager: @unchecked Sendable {
     }
 
     /// The current session's foreground time — what banked, plus the segment in
-    /// flight. Backs the built-in `session` starting point; nil when no session is
+    /// flight. Backs screen time since `$session_start`; nil when no session is
     /// open. Read, never written, so it can't disturb what `$session_end` reports.
     func foregroundSeconds(now: Date) -> TimeInterval? {
         lock.lock(); defer { lock.unlock() }

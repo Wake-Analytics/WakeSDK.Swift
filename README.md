@@ -13,7 +13,7 @@ Or add to `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/Wake-Analytics/WakeSDK.Swift.git", .upToNextMinor(from: "0.8.0")),
+    .package(url: "https://github.com/Wake-Analytics/WakeSDK.Swift.git", .upToNextMinor(from: "0.9.0")),
 ]
 ```
 
@@ -42,29 +42,41 @@ Events live in Wake, not in your code. You give each one a name, a plain-languag
 
 Wake generates `WakeEvents.swift` for your app, with each event's description as its doc comment, and a prompt to hand your coding agent alongside it. Drop the file into your app and don't edit it: change the events in Wake and regenerate.
 
+Events are grouped by the feature they belong to in Wake:
+
 ```swift
 public extension Wake.Event {
 
-    /// The export finishes writing and the share sheet is presented.
-    ///
-    /// - Parameters:
-    ///   - pageCount: Pages in the exported PDF
-    static func exportedPdf(pageCount: Int?) -> Wake.Event { … }
+    static var export: ExportEvents { ExportEvents() }
 
-    /// The library is opened from the tab bar.
-    static var openedLibrary: Wake.Event { … }
+    struct ExportEvents {
+
+        /// The export finishes writing and the share sheet is presented.
+        ///
+        /// - Parameters:
+        ///   - pageCount: Pages in the exported PDF
+        public func finished(pageCount: Int?) -> Wake.Event { … }
+    }
+
+    static var library: LibraryEvents { LibraryEvents() }
+
+    struct LibraryEvents {
+
+        /// The library is opened from the tab bar.
+        public var opened: Wake.Event { … }
+    }
 }
 ```
 
 ## 4. Log
 
 ```swift
-Wake.log(.usedSearch(query: text, results: hits.count))
-Wake.log(.openedPaywall(source: "settings"))
-Wake.log(.openedLibrary)
+Wake.log(.search.used(query: text, results: hits.count))
+Wake.log(.paywall.opened(source: "settings"))
+Wake.log(.library.opened)
 ```
 
-Type `Wake.log(.` and autocomplete lists your events. Events are buffered on disk and uploaded in batches — they survive being killed offline, and nothing is sent twice.
+Type `Wake.log(.` and autocomplete lists your features, then each feature's events. Events are buffered on disk and uploaded in batches — they survive being killed offline, and nothing is sent twice.
 
 ## What you get without writing anything
 
@@ -82,7 +94,7 @@ Add a **Purchase Product** property to the event in Wake, and the generated even
 takes the whole product at the call site:
 
 ```swift
-Wake.log(.subscribed(product: product, transaction: transaction, paywallSource: "onboarding"))
+Wake.log(.paywall.subscribed(product: product, transaction: transaction, paywallSource: "onboarding"))
 ```
 
 The SDK reads the product's own fields off it: `product_id`, `product_name`, `price`,
@@ -130,26 +142,13 @@ counts from.
 the whole reason the SDK has to measure it — nothing in the event stream says when
 someone stopped looking.
 
-Two starting points need no work from you:
+It counts from an event — **From** — to the event that carries it — **To**: "Opened paywall → Subscribed" is the foreground time between the two.
 
-- **Install** — every second the app has ever been in front.
-- **This session** — the current session's foreground time.
-
-For anywhere else in your app, Wake generates a starting point to mark:
-
-```swift
-Wake.mark(.onboardingStarted)
-```
-
-That records nothing and uploads nothing. It just puts a stake in this install's
-foreground time, and any event counting from that point measures back to it.
-
-- **Marking again restarts the clock.** The point means "from when I said".
-- **Logging the event doesn't use the mark up.** A second one measures from the
-  same place and reads longer.
-- **Never marked means the property is absent** on that event — not zero.
-- **The property fills itself**, measured when the event is logged, so adding one to
-  an event doesn't change its arguments and your existing calls keep compiling.
+- **From is any event you designed**, or one of the two the SDK logs itself: **App install** (`$first_launch`, every second the app has ever been in front) and **Session start** (`$session_start`, the current session's foreground time).
+- **It counts from the latest From.** Logging the From event again moves the starting line, so the time is always since the most recent one on that install.
+- **Logging To doesn't use From up.** A second To measures from the same From and reads longer.
+- **No From yet means the property is absent** on that event — not zero.
+- **The property fills itself**, measured when To is logged, so adding one doesn't change the event's arguments and your existing calls keep compiling.
 
 ## Deleting a user's data
 

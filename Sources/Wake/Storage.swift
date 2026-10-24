@@ -16,6 +16,7 @@ enum Keys {
     static let pendingErasureID = prefix + "pendingErasureInstallID"
     static let session = prefix + "session"
     static let screenTime = prefix + "screenTime"
+    static let carried = prefix + "carried"
 }
 
 final class UserDefaultsStore: KeyValueStore, @unchecked Sendable {

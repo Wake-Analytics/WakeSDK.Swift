@@ -15,6 +15,7 @@ extension Wake {
             return Core(
                 store: store, clock: clock, sink: transport, lifecycle: transport,
                 sessions: sessions, screenTime: ScreenTime(clock: clock, store: store),
+                carried: CarriedValues(store: store),
                 appLifecycle: SystemLifecycleObserver(),
                 appOrigin: SystemAppOrigin()
             )
@@ -27,6 +28,7 @@ extension Wake {
         private let lifecycle: TransportLifecycle?
         private let sessions: SessionManager?
         private let screenTime: ScreenTime?
+        private let carried: CarriedValues?
         private let appLifecycle: (any AppLifecycleObserver)?
         private let appOrigin: (any AppOriginSource)?
         private let uuid: () -> String
@@ -50,6 +52,7 @@ extension Wake {
             lifecycle: TransportLifecycle? = nil,
             sessions: SessionManager? = nil,
             screenTime: ScreenTime? = nil,
+            carried: CarriedValues? = nil,
             appLifecycle: (any AppLifecycleObserver)? = nil,
             appOrigin: (any AppOriginSource)? = nil,
             uuid: @escaping () -> String = { UUID().uuidString }
@@ -60,6 +63,7 @@ extension Wake {
             self.lifecycle = lifecycle
             self.sessions = sessions
             self.screenTime = screenTime
+            self.carried = carried
             self.appLifecycle = appLifecycle
             self.appOrigin = appOrigin
             self.uuid = uuid
@@ -123,6 +127,7 @@ extension Wake {
             }()
             sessions?.reset()
             screenTime?.reset()
+            carried?.reset()
             if let erasedID { lifecycle?.requestErasure(installID: erasedID) }
         }
 
@@ -175,26 +180,64 @@ extension Wake {
             lifecycle?.flush()
         }
 
+        // MARK: Logging
+
+        /// Takes the values its feature carries, measures its screen-time properties,
+        /// records it, then makes it a place for later events to count from and, when it
+        /// carries values, the one later events take them from. In that order, so an
+        /// event never counts from or takes values from its own occurrence.
+        func log(_ event: Wake.Event) {
+            var params = event.params
+            if let source = event.carriedFrom, isActive {
+                for (key, value) in carried?.values(from: source) ?? [:] where params[key] == nil {
+                    params[key] = value
+                }
+            }
+            for (paramID, fromEvent) in event.screenTimeSince {
+                if let seconds = screenTimeSince(fromEvent) {
+                    params[paramID] = .double(seconds)
+                }
+            }
+            record(
+                name: event.name,
+                params: params,
+                transaction: event.transaction,
+                configID: event.config
+            )
+            mark(event.name)
+            if !event.carries.isEmpty, isActive {
+                carried?.store(event.params, keys: event.carries, for: event.name)
+            }
+        }
+
+        /// Whether `start` has been called: nothing is written before it.
+        private var isActive: Bool {
+            lock.lock(); defer { lock.unlock() }
+            if case .active = state { return true }
+            return false
+        }
+
         // MARK: Screen time
 
-        /// Put a starting point at this moment. A no-op before `start`, like every
-        /// other entry point: nothing is written until there is consent.
+        /// Note that this event was logged at this moment, for later events to count
+        /// from. A no-op before `start`, like every other entry point: nothing is
+        /// written until there is consent.
         func mark(_ id: String) {
             lock.lock()
             let started = { if case .active = state { return true } else { return false } }()
             lock.unlock()
             guard started else {
-                Diag.debug("`\(id)` not marked — Wake.start(apiKey:) hasn't been called")
                 return
             }
             screenTime?.mark(id, now: clock.now())
         }
 
-        /// Foreground seconds since that starting point, or nil when it was never
-        /// marked — which is what leaves the property off the instance entirely.
+        /// Foreground seconds since that event was last logged, or nil when it never
+        /// was — which is what leaves the property off the occurrence entirely.
         ///
-        /// The two built-ins need no mark: `install` is the accumulator itself, and
-        /// `session` is the open session's own foreground time.
+        /// The two automatic events are read off what the SDK already keeps:
+        /// `$first_launch` is the accumulator itself, and `$session_start` the open
+        /// session's own foreground time.
         func screenTimeSince(_ id: String) -> TimeInterval? {
             lock.lock()
             let started = { if case .active = state { return true } else { return false } }()
@@ -203,8 +246,8 @@ extension Wake {
 
             let now = clock.now()
             switch id {
-            case ScreenTime.Builtin.install: return screenTime.total(now: now)
-            case ScreenTime.Builtin.session: return sessions?.foregroundSeconds(now: now)
+            case AutoEvent.firstLaunch: return screenTime.total(now: now)
+            case AutoEvent.sessionStart: return sessions?.foregroundSeconds(now: now)
             default: return screenTime.since(id, now: now)
             }
         }

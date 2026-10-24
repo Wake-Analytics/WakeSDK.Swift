@@ -178,7 +178,83 @@ final class ScreenTimeTests: XCTestCase {
 
         clock.date = t0.addingTimeInterval(120)
 
-        XCTAssertEqual(core.screenTimeSince(ScreenTime.Builtin.install), 120, "nothing to mark")
+        XCTAssertEqual(core.screenTimeSince(AutoEvent.firstLaunch), 120, "nothing to mark")
+    }
+
+    // MARK: Counting from logged events
+
+    private func startedCore(clock: MutableClock, sink: CollectingSink) -> Wake.Core {
+        let store = InMemoryStore()
+        let core = Wake.Core(store: store, clock: clock, sink: sink, screenTime: make(store: store, clock: clock))
+        core.start(apiKey: "k")
+        return core
+    }
+
+    private func purchased(since fromEvent: String) -> Wake.Event {
+        ._event("paywall.purchased", screenTimeSince: ["since_from": fromEvent])
+    }
+
+    func testAnEventCountsFromTheLastTimeItsFromEventWasLogged() {
+        let clock = MutableClock(t0)
+        let sink = CollectingSink()
+        let core = startedCore(clock: clock, sink: sink)
+
+        clock.date = t0.addingTimeInterval(10)
+        core.log(._event("paywall.opened"))
+        clock.date = t0.addingTimeInterval(25)
+        core.log(._event("paywall.opened"))
+        clock.date = t0.addingTimeInterval(40)
+        core.log(purchased(since: "paywall.opened"))
+
+        XCTAssertEqual(sink.received.last?.params["since_from"], .double(15), "the latest occurrence wins")
+    }
+
+    func testNeverLoggedLeavesThePropertyOff() {
+        let clock = MutableClock(t0)
+        let sink = CollectingSink()
+        let core = startedCore(clock: clock, sink: sink)
+
+        core.log(purchased(since: "paywall.opened"))
+
+        XCTAssertNil(sink.received.last?.params["since_from"], "absent, not zero")
+    }
+
+    func testAnEventDoesNotCountFromItsOwnOccurrence() {
+        let clock = MutableClock(t0)
+        let sink = CollectingSink()
+        let core = startedCore(clock: clock, sink: sink)
+
+        clock.date = t0.addingTimeInterval(10)
+        core.log(._event("paywall.purchased", screenTimeSince: ["since_from": "paywall.purchased"]))
+        clock.date = t0.addingTimeInterval(30)
+        core.log(._event("paywall.purchased", screenTimeSince: ["since_from": "paywall.purchased"]))
+
+        XCTAssertNil(sink.received.first?.params["since_from"], "measured before it was marked")
+        XCTAssertEqual(sink.received.last?.params["since_from"], .double(20), "from the previous occurrence")
+    }
+
+    func testFirstLaunchCountsTheWholeInstall() {
+        let clock = MutableClock(t0)
+        let sink = CollectingSink()
+        let core = startedCore(clock: clock, sink: sink)
+
+        clock.date = t0.addingTimeInterval(90)
+        core.log(purchased(since: "$first_launch"))
+
+        XCTAssertEqual(sink.received.last?.params["since_from"], .double(90))
+    }
+
+    func testLoggingBeforeStartMarksNothing() {
+        let store = InMemoryStore()
+        let clock = MutableClock(t0)
+        let sink = CollectingSink()
+        let core = Wake.Core(store: store, clock: clock, sink: sink, screenTime: make(store: store, clock: clock))
+
+        core.log(._event("paywall.opened"))
+        core.start(apiKey: "k")
+        core.log(purchased(since: "paywall.opened"))
+
+        XCTAssertNil(sink.received.last?.params["since_from"], "no consent → no marks")
     }
 
     func testDeleteDataClearsScreenTime() {

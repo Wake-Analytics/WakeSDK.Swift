@@ -1,11 +1,11 @@
 import Foundation
 
 /// How long the app has actually been in front, for the life of the install, and
-/// where each named starting point sits on that total.
+/// where on that total each event was last logged.
 ///
-/// One accumulator, and a mark is a number on it. Marking a starting point stores
-/// the total as it stands; screen time since it is one subtraction. Nothing here
-/// grows with the number of starting points, and nothing runs on a timer.
+/// One accumulator, and a mark is a number on it. Logging an event stores the total
+/// as it stands under the event's name; screen time since it is one subtraction.
+/// There is one mark per event the app has logged, and nothing runs on a timer.
 ///
 /// Foreground time only, which is the whole reason this exists: it cannot be
 /// recovered from event timestamps afterwards, because nothing in the event stream
@@ -15,14 +15,6 @@ import Foundation
 /// `Clock`, so a session's duration and a screen-time-since value can never
 /// disagree about what a second is.
 final class ScreenTime: @unchecked Sendable {
-
-    /// Starting points the SDK resolves itself, with nothing to mark.
-    enum Builtin {
-        /// Every second the app has ever been in front.
-        static let install = "install"
-        /// The current session's foreground time.
-        static let session = "session"
-    }
 
     private let clock: Clock
     private let store: KeyValueStore
@@ -62,9 +54,9 @@ final class ScreenTime: @unchecked Sendable {
         return total(load(), now: now)
     }
 
-    /// Put a starting point here, or move it here if it already exists. The last
-    /// mark wins: a point marked again before its event is logged counts from
-    /// the new mark, so it always means "from when I said".
+    /// Put the event's mark here, or move it here if it already exists. The last
+    /// occurrence wins: screen time since an event always counts from the latest
+    /// time it was logged.
     func mark(_ id: String, now: Date) {
         lock.lock(); defer { lock.unlock() }
         var state = load()
@@ -72,8 +64,8 @@ final class ScreenTime: @unchecked Sendable {
         save(state)
     }
 
-    /// Foreground seconds since that starting point was marked, or nil when it never
-    /// was. Absence is a fact about this subject, never a zero.
+    /// Foreground seconds since that event was marked, or nil when it never was.
+    /// Absence is a fact about this subject, never a zero.
     func since(_ id: String, now: Date) -> TimeInterval? {
         lock.lock(); defer { lock.unlock() }
         let state = load()
